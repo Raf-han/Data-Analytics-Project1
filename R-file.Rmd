@@ -1,28 +1,123 @@
----
-title: "Untitled"
-output: html_document
----
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+```{r}
+## 1-  Importing 3 datasets
+library(readxl)
+Addresses <- read_excel("DATA/Addresses.xlsx")
+Deficiencies <- read_excel("DATA/Deficiencies.xlsx")
+Investigations <- read_excel("DATA/Investigations.xlsx")
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+
+```{r}
+
+head(Addresses)
+
+
 ```
 
-## Including Plots
+```{r}
+# Remove redundancy - deteteing "House" and "Street" attributes
+Addresses <- Addresses[,-c(3,4)]
 
-You can also embed plots, for example:
+# combining street "direction" with addrline attribute then removing "direction"
+Addresses$AddrLine <- paste(Addresses$AddrLine,"-",Addresses$Direction)
+Addresses<- Addresses[,-4]
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+head(Addresses)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+head(Deficiencies)
+```
+```{r}
+head(Investigations)
+```
+
+```{r}
+# Combining All Data into one dataframe using "INVESTIGATION_ID" attribute
+data <- merge(Addresses,Deficiencies, by= "INVESTIGATION_ID", all=T)
+
+data<- merge(data,Investigations,by= "INVESTIGATION_ID", all=T )
+
+```
+
+```{r}
+# Checking Types by Occurances
+type_occ<- as.data.frame( table(data$InType ))
+
+library(ggplot2)
+
+ggplot( type_occ, aes(Var1,Freq))+  
+  geom_bar(stat="identity",color="black", width=.6)+
+  xlab("Inv_Type")+ylab("Occurrence")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust = 0))+
+  ggtitle("Investigation type occurrence")
+
+# Remove Data realted to "Election Signs" and "Grafiti" violations
+data<- data[! (data$InType == "Election Signs" & data$InType == "Graffiti" & data$InType =="Notice Issued Graffiti" & data$InType =="Notice Issued Signs"),]
+
+```
+
+
+```{r}
+# Types of streets with most Investigations
+st_type<- as.data.frame(table(data$Type))
+
+library(ggplot2)
+
+ggplot( st_type, aes(Var1,Freq))+  
+  geom_bar(stat="identity",color="black", width=.6)+
+  xlab("Inv_Type")+ylab("Occurrence")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust = 0))+
+  ggtitle("Investigation per street Type")
+```
+
+```{r}
+# Expolre adddresses with more than 1 investigation
+
+dblcated <- data[data$AddrLine %in% data$AddrLine
+                  [duplicated(data$AddrLine)],]
+#order by address
+dblcated<- dblcated [order(dblcated$AddrLine),]
+
+# Get addresses with most investigations
+mst_dblcated <- as.data.frame(table(dblcated$AddrLine))
+#order by frequency 
+mst_dblcated <- mst_dblcated[order(mst_dblcated$Freq, decreasing = TRUE),]
+
+head(mst_dblcated)
+
+```
+```{r}
+# How often same addresses get more than 1 investigation 
+inv_per_address <- as.data.frame(table(mst_dblcated$Freq))
+inv_per_address$Var1<- as.numeric(inv_per_address$Var1)
+
+library(ggplot2)
+ggplot( inv_per_address, aes(Freq,Var1))+
+  geom_line(size=1) +
+  geom_point(size=2)+
+  theme(legend.margin = margin(0.2,0.6, 0.2, 0.2, "cm"))+
+  theme(legend.text = element_text(colour="black", size=10,face="bold"))+
+  xlab("number of addresses(properties)")+ylab("number of investigations to the same address")+
+  ggtitle("INVESTIGATIONS TO THE SAME ADDRESS")
+```
+
+
+```{r}
+# Finding out which types have long text discription
+text_disc <- as.data.frame(table(data$InType,is.na(data$Desc)))
+                           
+library(ggplot2)
+ggplot( text_disc, aes(Var1,Freq, color = Var2,group=Var2,fill=Var2))+  
+  geom_bar(stat="identity",color="black", width=.6)+
+  xlab("Inv_Type")+ylab("Occurrence")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust = 0))+
+  ggtitle("Investigation type occurrence - entry has discription")
+  
+```
+
